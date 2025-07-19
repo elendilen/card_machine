@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>相机视频流</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        img {
+            max-width: 100%;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            margin: 0 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .start-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .stop-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>相机实时视频流</h1>
+    
+    <div class="controls">
+        <button class="start-btn" onclick="startStream()">启动视频流</button>
+        <button class="stop-btn" onclick="stopStream()">停止视频流</button>
+        <button onclick="checkStatus()">检查状态</button>
+    </div>
+    
+    <div id="status" class="status"></div>
+    
+    <div class="video-container">
+        <img id="videoStream" src="" alt="视频流将在这里显示" style="display: none;">
+        <div id="placeholder">点击"启动视频流"开始查看相机画面</div>
+    </div>
+
+    <script>
+        const videoImg = document.getElementById('videoStream');
+        const placeholder = document.getElementById('placeholder');
+        const statusDiv = document.getElementById('status');
+
+        function showStatus(message, isSuccess = true) {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        function startStream() {
+            fetch('/api/start_stream', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('视频流启动成功');
+                        videoImg.src = '/api/video_feed?' + new Date().getTime();
+                        videoImg.style.display = 'block';
+                        placeholder.style.display = 'none';
+                    } else {
+                        showStatus('启动失败: ' + data.error, false);
+                    }
+                })
+                .catch(error => {
+                    showStatus('请求失败: ' + error, false);
+                });
+        }
+
+        function stopStream() {
+            fetch('/api/stop_stream', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('视频流已停止');
+                        videoImg.style.display = 'none';
+                        placeholder.style.display = 'block';
+                        videoImg.src = '';
+                    } else {
+                        showStatus('停止失败: ' + data.error, false);
+                    }
+                })
+                .catch(error => {
+                    showStatus('请求失败: ' + error, false);
+                });
+        }
+
+        function checkStatus() {
+            fetch('/api/stream_status')
+                .then(response => response.json())
+                .then(data => {
+                    const message = `相机状态: ${data.camera_initialized ? '已初始化' : '未初始化'}, 视频流: ${data.streaming ? '运行中' : '已停止'}`;
+                    showStatus(message);
+                })
+                .catch(error => {
+                    showStatus('检查状态失败: ' + error, false);
+                });
+        }
+
+        // 页面加载时检查状态
+        window.onload = function() {
+            checkStatus();
+        };
+    </script>
+</body>
+</html>

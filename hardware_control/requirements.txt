@@ -1,0 +1,6 @@
+flask
+flask-cors
+pyserial
+picamera2
+requests
+opencv-python

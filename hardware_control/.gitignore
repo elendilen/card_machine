@@ -1,0 +1,41 @@
+# 虚拟环境
+venv/
+env/
+ENV/
+keyenv/
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 照片目录
+photos/
+received_photos/
+
+# 日志文件
+*.log
+
+# 配置文件
+config.ini
+*.ini
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 测试文件
+test_*.jpg
+*.h264
+
+# 实时数据文件
+realtime_data.json
