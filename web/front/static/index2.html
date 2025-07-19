@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Werewolf Deduction Live System</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+    }
+
+    .header-banner {
+      width: 100%;
+      height: 300px;
+      background-image: url("/static/header.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .main-content {
+      padding:20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 20px 0;
+      text-align: center;
+      color: #333;
+      font-size: 28px;
+    }
+
+    .content-area {
+      display: flex;
+      gap: 20px;
+      justify-content: space-around;
+    }
+
+
+    .output-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+
+    .panel {
+      flex: 1;
+      background: #fff;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      height: 240px; 
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: #444;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+
+    .panel pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .speech-output {
+      text-align: left !important;
+      font-family: 'Segoe UI', sans-serif;
+      line-height: 1.5;
+      overflow-y: auto;
+      max-height: 200px;
+      padding-right: 10px;
+    }
+
+    .speech-line {
+        margin-bottom: 6px;
+    }
+
+    .gesture-result {
+      width: 90%;
+      margin: 20px auto;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      font-size: 18px;
+      text-align: center;
+    }
+    .gesture-result h2 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- 顶部横幅图像 -->
+  <div class="header-banner"></div>
+
+  <!-- 主体内容 -->
+  <div class="main-content">
+    <h1>Welcome to the Werewolf Deduction System</h1>
+
+    <!-- 内容区 -->
+    <div class="content-area">
+
+      
+
+
+
+      <!-- 右侧：语音识别 + 模型推理输出 -->
+      <div class="output-panel">
+
+        <!-- 玩家语音识别输出 -->
+        <div class="panel" id="speech-panel">
+          <h2>Player Speech Recognition</h2>
+          <button onclick="startRecording()">Start Recording (10s)</button>
+          <pre id="speech-output">Waiting for input...</pre>
+        </div>
+
+        <!-- 大模型身份推理输出 -->
+        <div class="panel" id="llm-panel">
+          <h2>LLM Deduction Output</h2>
+          <button onclick="runLLMDeduction()">Start Deduction</button>
+          <pre id="llm-output">Analyzing...</pre>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.start();
+
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append("file", audioBlob, "record.wav");
+
+        // 调用 FastAPI 接口
+        fetch("api/recognize/", {
+          method: "POST",
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+          const speechOutput = document.getElementById("speech-output");
+          if (speechOutput.innerText === "Waiting for input...") {
+            speechOutput.innerText = "";
+          }
+
+          const line = document.createElement("div");
+          line.className = "speech-line";
+          line.innerText = `${data.player}: ${data.text}`;
+          speechOutput.appendChild(line);
+          speechOutput.scrollTop = speechOutput.scrollHeight;
+
+          document.getElementById("llm-output").innerText = "Waiting for LLM analysis...";
+        })
+        .catch(err => {
+          const speechOutput = document.getElementById("speech-output");
+          speechOutput.innerText += `错误：${err}\n`;
+          speechOutput.scrollTop = speechOutput.scrollHeight;
+        });
+      };
+
+      // 自动停止录音（10 秒）
+      setTimeout(() => mediaRecorder.stop(), 10000);
+    })
+    .catch(err => {
+      alert("无法访问麦克风：" + err);
+    });
+}
+</script>
+
+<script>
+const BASE_URL = "http://127.0.0.1:8888"; // 后端地址
+
+// 游戏初始化
+async function initGame() {
+  const numPlayers = prompt("请输入玩家数量：");
+  const res = await fetch(`${BASE_URL}/init_game`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ num_players: parseInt(numPlayers) })
+  });
+  const data = await res.json();
+  alert(`初始化完成，当前角色：${data.state.current_role}`);
+  updateGameUI(data.state);
+}
+
+
+// 更新UI显示状态
+function updateGameUI(state) {
+  document.getElementById("current-role-text").innerText = state.current_role;
+  document.getElementById("current-role-text-2").innerText = `Current Stage：${state.current_role}`;
+  const promptBox = document.getElementById("game-prompt-box");
+  let promptContent = "";
+
+  if (state.current_prompt) {
+    promptContent += `<div><strong>Prompt:</strong> ${state.current_prompt}</div>`;
+  } else {
+    promptContent += `<div><strong>Prompt:</strong> none</div>`;
+  }
+
+  if (state.seer_result) {
+    promptContent += `<div style="margin-top: 10px; color: #3f51b5;">Seer Check：${state.seer_result}</div>`;
+  }
+
+  if (state.witch_info) {
+    promptContent += `<div style="margin-top: 10px; color: #009688;">Witch Info：${state.witch_info}</div>`;
+  }
+
+  promptBox.innerHTML = promptContent;
+
+  let playerList = "";
+  for (const [id, info] of Object.entries(state.players)) {
+    playerList += `Player ${id} -  Life Status: ${info.alive}<br>`;
+  }
+  document.getElementById("player-list").innerHTML = playerList;
+}
+
+</script>
+
+<script>
+function runLLMDeduction() {
+  // 调用推理 API
+  fetch("/api/deduce/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})  // 后端自己构造 prompt，用全局 dialogue_history
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("llm-output").innerText = data.analysis || "未返回分析结果";
+  })
+  .catch(err => {
+    document.getElementById("llm-output").innerText = `请求失败: ${err}`;
+  });
+}
+</script>
+
+<script>
+// 定时刷新游戏状态
+function autoRefreshGameState() {
+  fetch(`${BASE_URL}/get_game_state`)
+    .then(res => res.json())
+    .then(state => {
+      updateGameUI(state);
+    })
+    .catch(err => {
+      console.warn("自动刷新游戏状态失败:", err);
+    });
+}
+
+// 每 2 秒自动刷新一次游戏状态
+setInterval(autoRefreshGameState, 2000);
+</script>
+
+<script>
+function sendVoteCommand() {
+  const BASE_URL = "http://127.0.0.1:5000";  // ⚠️ 改成你的 FastAPI 地址
+  const command = "rotate_90_and_capture";
+
+  fetch(`${BASE_URL}/send_command?command=${command}`, {
+    method: "POST"
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert("发送成功：" + JSON.stringify(data));
+  })
+  .catch(err => {
+    alert("发送失败：" + err);
+  });
+}
+</script>
+
+
+<!-- HTML 控件 -->
+<div style="text-align: center; margin-top: 20px;">
+  <button onclick="initGame()">Initialize Game</button>
+  <button onclick="sendVoteCommand()" style="margin-left: 10px;">Start Voting</button>
+</div>
+
+
+<!-- 游戏提示框 -->
+<div id="game-prompt-box" style="
+  margin: 20px auto;
+  width: 90%;
+  max-width: 800px;
+  background: #ffffff;
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+">
+  Prompt: none
+</div>
+
+
+<!-- 顶部状态 -->
+<h3>Current Role：<span id="current-role-text">--</span></h3>
+
+<!-- 游戏状态展示区 -->
+<div id="game-status-panel" style="
+  margin-top: 20px;
+  background: #ffffff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  width: 96%;
+  margin-left: auto;
+  margin-right: auto;
+">
+  <h3 style="margin-top: 0; color: #333;"> Game Status</h3>
+  <div id="current-role-text-2" style="margin-bottom: 8px;">Current Role：--</div>
+  <div id="player-list" style="font-family: monospace;text-align: center;"></div>
+</div>
+
+</body>
+</html>

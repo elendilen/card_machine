@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Werewolf Deduction Live System</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+    }
+
+    .header-banner {
+      width: 100%;
+      height: 300px;
+      background-image: url("/static/header.jpg");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .main-content {
+      padding:20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 20px 0;
+      text-align: center;
+      color: #333;
+      font-size: 28px;
+    }
+
+    .content-area {
+      display: flex;
+      gap: 20px;
+    }
+
+    .camera-view {
+      flex: 1;
+      background: black;
+      height: 480px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .camera-view video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .output-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .panel {
+      flex: 1;
+      background: #fff;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow-y: auto;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: #444;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+    }
+
+    .panel pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部横幅图像 -->
+  <div class="header-banner"></div>
+
+  <!-- 主体内容 -->
+  <div class="main-content">
+    <h1>Welcome to the Werewolf Deduction Live System</h1>
+
+    <!-- 内容区 -->
+    <div class="content-area">
+
+      <!-- 左侧：摄像头画面 -->
+      <div class="camera-view">
+        <img src="http://192.168.235.170:5000/api/video_feed" id="video-stream" style="transform: rotate(180deg); width: 100%; height: 100%;" />
+      </div>
+
+<script>
+const videoImg = document.getElementById("video-stream");
+
+// 页面加载时启动流
+fetch("http://192.168.235.170:5000/api/start_stream", {
+  method: "POST"
+}).then(() => {
+  // 设置 src，触发 GET 请求
+  videoImg.src = "http://192.168.235.170:5000/api/video_feed";
+}).catch(err => {
+  console.error("无法启动视频流:", err);
+});
+
+// 可选：添加停止流的按钮（如需）
+function stopStream() {
+  fetch("http://192.168.235.170:5000/api/stop_stream", { method: "POST" })
+    .then(() => {
+      videoImg.src = "";  // 清除图片
+      console.log("视频流已停止");
+    });
+}
+</script>
+
+      <!-- 右侧：语音识别 + 模型推理输出 -->
+      <div class="output-panel">
+
+        <!-- 玩家语音识别输出 -->
+        <div class="panel" id="speech-panel">
+          <h2>Player Speech Recognition</h2>
+          <button onclick="startRecording()">🎤 Start Recording (10s)</button>
+          <pre id="speech-output">Waiting for input...</pre>
+        </div>
+
+        <!-- 大模型身份推理输出 -->
+        <div class="panel" id="llm-panel">
+          <h2>LLM Deduction Output</h2>
+          <pre id="llm-output">Analyzing...</pre>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.start();
+
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append("file", audioBlob, "record.wav");
+
+        // 调用 FastAPI 接口
+        fetch("api/recognize/", {
+          method: "POST",
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("speech-output").innerText = `${data.player}: ${data.text}`;
+          document.getElementById("llm-output").innerText = "🧠 模型分析中...（此处可连接大模型）";
+        })
+        .catch(err => {
+          document.getElementById("speech-output").innerText = "❌ 错误：" + err;
+        });
+      };
+
+      // 自动停止录音（10 秒）
+      setTimeout(() => mediaRecorder.stop(), 10000);
+    })
+    .catch(err => {
+      alert("无法访问麦克风：" + err);
+    });
+}
+</script>
+
+</body>
+</html>

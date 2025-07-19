@@ -1,0 +1,46 @@
+# 忽略 Python 编译文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+# 忽略 Python 编译文件（所有层级）
+**/__pycache__/
+# 忽略模型、数据库、临时文件
+*.h5
+*.pt
+*.pkl
+
+# 忽略所有层级的图片文件
+*.db
+
+# 忽略日志和临时文件
+*.log
+*.tmp
+*.bak
+
+# 忽略 VSCode 配置
+.vscode/
+
+# 忽略测试文件
+*.http
+
+# 忽略静态图片（如不需要上传）
+front/static/header.jpg
+
+# 忽略 checkpoints（如为训练模型临时文件）
+backend/faceRecognitionCode/best.pt
+backend/faceRecognitionCode/embeddings_db.pkl
+backend/gestureCode/checkpoints/
+
+# 可选：忽略所有静态文件（如只上传代码）
+# front/static/*
+
+# 保留 HTML/JS/CSS 及主要代码
+!front/static/*.html
+!front/static/*.js
+!front/static/*.css
+
+# 保留主程序和核心代码
+!main.py
+!backend/**.py
+!code/**.py
